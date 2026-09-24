@@ -1,0 +1,68 @@
+# Netlify 部署配置
+#
+# 为什么不用 Vercel：本机（校园网）到 vercel.app 是 DNS 投毒 + IP 级 RST 双封锁，
+# 只有挂代理的浏览器能打开，分享给同学很不方便。netlify.app 直连正常
+# （实测 www.netlify.com 0.6s、app.netlify.com 0.3s、netlify.app CDN 0.2s）。
+# vercel.json 保留着，Vercel 那套仍然可用，只是不再是主力。
+
+[build]
+  # ⚠️ 第二步不是可选的，删掉线上所有动态路由都会 500。
+  # `next build` 会在 .next/node_modules/ 下生成**绝对路径**符号链接
+  # （如 @prisma/client-<hash> -> D:\...\node_modules\@prisma\client），
+  # 而 @netlify/plugin-nextjs 复制时用 verbatimSymlinks 照抄链接文本，
+  # 上传到 Linux 容器后就成了死链，require 直接失败。
+  # deref-next-symlinks.mjs 在插件复制**之前**把链接换成实体副本。
+  # 详见该脚本的文件头注释。
+  command = "npm run build && node scripts/deref-next-symlinks.mjs"
+  publish = ".next"
+
+[build.environment]
+  # 与 package.json 的 engines（>=22 <23）保持一致，避免 Netlify 默认版本漂移。
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+# Next.js 运行时适配器（OpenNext）。它把 SSR / ISR / Route Handlers /
+# Server Actions 变成 Netlify Functions，Middleware 变成 Edge Functions，
+# 并把 next.config.ts 里的 headers() 翻译成 Netlify 的 CDN 头规则
+# —— COOP/COEP 那条关键链路就靠这个翻译，部署后必须验证（见 docs/netlify-deploy.md）。
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# ── 静态资源也必须带隔离头（否则浏览器里跑不了 C）────────────────
+#
+# next.config.ts 里的 `/:path*` 规则只覆盖**页面路由**：那些请求走服务端处理器，
+# 头由 Next 运行时加。而 /_next/static/* 和 /wasmer/* 是从 CDN 直发的静态文件，
+# 运行时不给它们加头 —— 实测线上这些响应**完全没有 COOP/COEP**，而本地
+# `next start` 是有的。
+#
+# 后果很隐蔽：页面本身是 cross-origin isolated 的（所以 COOP/COEP 检查看起来
+# 没问题），但运行器的 Worker 脚本 `turbopack-worker-*.js` 在 require-corp 的
+# 页面里因为响应缺头被浏览器拦掉：
+#
+#   net::ERR_BLOCKED_BY_RESPONSE  /_next/static/chunks/turbopack-worker-*.js
+#
+# 页面上表现为「编译器没能准备好 / 运行器 Worker 出错：未知错误」——
+# 而静态资源本身 HTTP 200、大小正常，极容易误判成 SDK 问题。
+#
+# 只对静态资源路径生效，不碰 HTML 路由，避免与运行时的头重复下发
+# （COOP/COEP 出现重复值会被浏览器判为无效）。
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Embedder-Policy = "require-corp"
+    Cross-Origin-Resource-Policy = "same-origin"
+
+[[headers]]
+  for = "/wasmer/*"
+  [headers.values]
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Embedder-Policy = "require-corp"
+    Cross-Origin-Resource-Policy = "same-origin"
+
+# ── Supabase 保活定时任务 ───────────────────────────────────────
+# Next Runtime v5 起，Next.js 的 experimental-scheduled API route 已废弃，
+# 定时任务必须写成普通 Netlify Function（见 netlify/functions/keepalive.mjs）。
+# cron 表达式按 UTC 解释；这里每 6 小时一次 = 4 次/天的真实表读取。
+[functions.keepalive]
+  schedule = "0 */6 * * *"

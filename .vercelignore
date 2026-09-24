@@ -1,0 +1,50 @@
+# ============================================================
+# Vercel CLI 上传排除清单
+#
+# ⚠️ 关键事实（官方文档 + 实测）：
+#    Vercel CLI **不读 .gitignore**。它只认自己的默认忽略列表 + 本文件。
+#    你的 .gitignore 永远不会参与 CLI 部署的筛选。
+#    所以这里必须显式排除所有"只在本地有意义"的东西，
+#    尤其是 .env.local —— 不写这一行，密钥就会被打包上传到 Vercel。
+#
+# ✅ 必须上传（运行时依赖，不要加进来）：
+#    content/                        讲义 MDX，服务端 readFile 读它
+#    public/wasmer/                  自托管 @wasmer/sdk 运行时（5.3MB）
+#                                    被 .gitignore 排除，但线上必须有，否则
+#                                    命令静默 exit=1 后抛 "Scheduler is dead"
+#    public/toolchain/clang.pkg.gz   浏览器实际下载的 34MB 工具链
+# ============================================================
+
+# ---- 🔐 密钥：绝不能上传 ----
+.env
+.env.local
+.env*.local
+
+# ---- 构建产物 / 缓存（体积巨大，共约 350MB）----
+.next
+.cache
+out
+build
+*.tsbuildinfo
+
+# ---- 依赖与本地工具目录 ----
+node_modules
+.vercel
+.git
+
+# ---- 测试产物 ----
+test-results
+playwright-report
+blob-report
+playwright/.cache
+coverage
+screenshots
+
+# ---- 体积超限：106MB 原始包 ----
+#     超过 Vercel 单文件 100MB 硬上限，会导致部署直接 abort。
+#     浏览器只用 .gz（用 DecompressionStream 解压），原始文件纯属浪费。
+/public/toolchain/clang.pkg
+
+# ---- 本机私钥与证书 ----
+certs
+*.pem

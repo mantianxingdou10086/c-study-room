@@ -1,0 +1,107 @@
+<Goals items={["用 scanf 读入整数与小数", "解释 & 的作用以及为什么 printf 不需要它", "说出 scanf 读不进去时会发生什么"]} />
+
+<KeyPoint>
+  printf 要把值**送出去**，只需要知道值是多少；scanf 要把值**收进来**，
+  所以必须知道「放到哪块内存」——这就是那个 `&` 存在的全部理由。
+</KeyPoint>
+
+## 基本用法
+
+```c
+int age;
+scanf("%d", &age);      /* 读一个整数，存进 age */
+```
+
+```c
+double price;
+scanf("%lf", &price);   /* 读一个小数，注意是 %lf 不是 %f */
+```
+
+<Callout type="warn" title="double 要用 %lf，这是 C 的怪癖">
+  在 printf 里，`double` 用 `%f`；但在 scanf 里必须用 `%lf`。
+  用错 scanf 的格式说明，读进来的值就是错的（而且不一定报错）。
+</Callout>
+
+## & 是什么
+
+`&age` 读作「age 的地址」。内存里每个变量都有自己的位置，
+`&` 就是问出这个位置的门牌号。
+
+- `printf("%d", age)` —— 「把这个盒子里装的东西告诉我」
+- `scanf("%d", &age)` —— 「这是盒子的门牌号，你自己把东西放进去」
+
+<Callout type="tip" title="一个记忆法">
+  看函数名：**print**f 是「打印」，它要的是**内容**；
+  **scan**f 是「扫描输入」，它要的是**往哪儿放**。一个要内容，一个要位置。
+</Callout>
+
+## 一次读多个值
+
+```c
+int a, b;
+scanf("%d %d", &a, &b);   /* 用户输入 "3 4" 或 "3\n4" 都能读到 */
+```
+
+格式串里的空格表示「跳过任意多个空白字符」，所以用户用空格、回车、Tab 分隔都可以。
+
+## 读不进去会发生什么
+
+如果用户输入了 `abc`，而你要读 `%d`：
+
+- scanf 会读**失败**，并且**停在原地**（不消费掉那串字符）
+- 变量 `a` 保持原值（通常是垃圾值）
+- 后面的 scanf 会再次撞上同样的 `abc`，继续失败
+
+这就是「输入一次错，后面全乱」的原因。
+
+<Pitfall title="scanf 里给格式串加了多余的字">
+  ```c
+  scanf("%d 个\n", &n);   /* ❌ 用户必须真的输入 "个" 才能匹配 */
+  ```
+  格式串里的普通字符是**要匹配的**，不是提示语。想让用户看到提示，用 printf 单独打印：
+  ```c
+  printf("请输入个数：");
+  scanf("%d", &n);
+  ```
+</Pitfall>
+
+<Pitfall title="忘了 & 或写错变量">
+  ```c
+  scanf("%d", n);     /* ❌ 漏了 & */
+  scanf("%d", &m);    /* ❌ 想读进 n 却写了 &m */
+  ```
+  第一种在现代编译器上会崩（scanf 把 n 的值当地址用了）；
+  第二种更阴险：程序正常运行，只是 n 永远是垃圾值。
+</Pitfall>
+
+<TryIt title="试着输入两个数（右边填输入框）" stdin="3 4">
+{`#include <stdio.h>
+
+int main(void)
+{
+    int a, b;
+
+    scanf("%d %d", &a, &b);
+    printf("你输入的是 %d 和 %d\\n", a, b);
+    printf("它们的和是 %d\\n", a + b);
+    return 0;
+}
+`}
+</TryIt>
+
+试试把输入框改成 `3 abc` 或留空，看看程序的行为——这就是上面说的「读不进去」。
+
+## 随堂检测
+
+<Quiz id="ch02-scanf-basics-q1" />
+
+<Quiz id="ch02-scanf-basics-q2" />
+
+<Quiz id="ch02-scanf-basics-q3" />
+
+## 这一节的结论
+
+scanf 要地址（`&`），`double` 用 `%lf`，格式串里别乱加文字，读失败会卡在原地。
+到这里，你已经能写「输入 → 计算 → 输出」的完整程序了。
+
+<BookRef pages="28~47" note="第 2 章关于 scanf 的部分" />

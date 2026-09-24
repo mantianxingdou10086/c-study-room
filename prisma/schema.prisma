@@ -1,0 +1,232 @@
+// C 语言自习室 —— 数据模型
+//
+// 架构约定（见 web/docs/content-pipeline.md）：
+//   课程内容（章节/课时/题目）**存在仓库里**，是唯一事实来源；
+//   数据库只存**用户的动态数据**：学习进度、提交记录、帖子、徽章授予。
+//   所以这里没有 Chapter/Lesson/Exercise 表，进度与提交用**字符串 id** 引用内容
+//   （如 lessonId = "ch01-introducing-c/why-c"、exerciseId = "ch04-03-q2"），不做外键。
+//   好处：改内容不必动数据库，也不会出现"仓库与库里的 id 漂移"。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ⚠️ Prisma 7 起，datasource 里**不能再写 url / directUrl**（会被 P1012 拒绝）。
+// 连接串改在 prisma.config.ts 里配置（迁移用），运行时由 PrismaClient 的 adapter 提供。
+// 详见 prisma.config.ts 与 src/lib/db.ts 里的注释。
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────── 用户 ───────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  username     String    @unique
+  passwordHash String
+  role         Role      @default(USER)
+
+  // 激励系统（M6）
+  xp            Int       @default(0)
+  level         Int       @default(1)
+  streakCurrent Int       @default(0)
+  streakBest    Int       @default(0)
+  /// 最近一次"打卡"的日期（只存日期，用于连续天数计算）
+  lastActiveDate DateTime? @db.Date
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  progresses  LessonProgress[]
+  submissions Submission[]
+  posts       Post[]
+  replies     Reply[]
+  votes       Vote[]
+  badges      UserBadge[]
+  activities  DailyActivity[]
+
+  @@index([xp(sort: Desc)])
+}
+
+// ─────────────────────── 学习进度（M4）───────────────────────
+
+enum ProgressStatus {
+  IN_PROGRESS
+  DONE
+}
+
+model LessonProgress {
+  id      String @id @default(cuid())
+  userId  String
+  /// "ch01-introducing-c/why-c"（章节 slug / 课时 slug）
+  lessonId String
+  /// 冗余存一份章节序号，方便"继续学习"和课程地图聚合查询
+  chapterOrder Int
+  status       ProgressStatus @default(IN_PROGRESS)
+  /// 停留时长（秒），前端每 15 秒上报一次累加
+  secondsSpent Int      @default(0)
+  completedAt  DateTime?
+
+  /// 这一节的 XP **是否已经发过**。
+  /// 必须单独记，不能靠 completedAt 判断：否则"取消完成 → 再标记完成"可以反复刷 XP。
+  xpAwarded Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 一个用户对一节课只有一条记录（upsert 的锚点）
+  @@unique([userId, lessonId])
+  /// "继续上次学习"：按 updatedAt 倒序取第一条未完成的
+  @@index([userId, updatedAt(sort: Desc)])
+}
+
+// ─────────────────────── 做题记录（M5）───────────────────────
+
+model Submission {
+  id      String @id @default(cuid())
+  userId  String
+  /// "ch04-03-q2"
+  exerciseId   String
+  chapterOrder Int
+  /// 题型快照：MCQ / FILL / CODE / OUTPUT
+  kind String
+
+  passed Boolean @default(false)
+  /// 提交次数（同一题重复提交会累加，用于"重复提交不再给 XP"）
+  attempts Int @default(1)
+
+  /// 用户答案（选择题下标 / 填空数组 / 文本）
+  answer Json?
+  /// 代码题的源码
+  code     String?
+  /// 代码题最后一次的 stdout（便于"回看当时为什么错了"）
+  stdout   String?
+  /// 是否用过提示 / 是否看过参考答案（看过之后该题不计 XP）
+  usedHint     Boolean @default(false)
+  viewedAnswer Boolean @default(false)
+  /// 这道题实际发了多少 XP（0 表示没发：重复提交/看过答案）
+  xpAwarded Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 一个用户对一道题只保留一条"当前状态"记录 → XP 发放天然幂等
+  @@unique([userId, exerciseId])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+// ───────────────────────── 论坛（M7）─────────────────────────
+
+model Post {
+  id       String @id @default(cuid())
+  authorId String
+  title    String
+  body     String
+  /// 可关联到某一章/某一节（"关于本节我有疑问"入口会带上）
+  chapterSlug String?
+  lessonSlug  String?
+  tags        String[] @default([])
+
+  /// 被采纳的回复 id（楼主或管理员可设）
+  solvedReplyId String?
+  views         Int      @default(0)
+  createdAt     DateTime @default(now())
+  /// 列表排序用（有新回复就更新）
+  lastReplyAt DateTime @default(now())
+
+  author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  replies Reply[]
+
+  // 注意：这里**故意没有** `votes Vote[]` 关系字段。
+  // Vote 是多态设计（targetType + targetId，可投帖也可投回复），
+  // 无法与 Post/Reply 建立类型化外键关系——查询点赞数走 Vote 表的复合索引。
+  @@index([lastReplyAt(sort: Desc)])
+  @@index([chapterSlug])
+}
+
+model Reply {
+  id       String @id @default(cuid())
+  postId   String
+  authorId String
+  /// 一级楼中楼：指向父回复
+  parentId String?
+  body     String
+
+  isAccepted Boolean @default(false)
+  /// 冗余计数，避免列表页每次都 count
+  upvotes    Int     @default(0)
+  createdAt  DateTime @default(now())
+
+  post     Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author   User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent   Reply?  @relation("ReplyTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Reply[] @relation("ReplyTree")
+
+  @@index([postId, createdAt])
+}
+
+enum VoteTarget {
+  POST
+  REPLY
+}
+
+model Vote {
+  id         String     @id @default(cuid())
+  userId     String
+  targetType VoteTarget
+  targetId   String
+  /// 1 或 -1
+  value      Int
+  createdAt  DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetType, targetId])
+  @@index([targetType, targetId])
+}
+
+// ────────────────────── 徽章与打卡（M6）─────────────────────
+
+/// 徽章的**定义**写在代码里（src/lib/gamify/badges.ts），这里只记录"谁在什么时候拿到了哪个"
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  /// "first-run" / "streak-7" / "pointer-awake" …
+  badgeCode String
+  awardedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeCode])
+  @@index([userId, awardedAt(sort: Desc)])
+}
+
+/// 每天一行的学习活动，用于连续打卡、学习热力图、本周排行榜
+model DailyActivity {
+  id     String   @id @default(cuid())
+  userId String
+  /// 按 UTC+8 的自然日切分
+  date   DateTime @db.Date
+
+  xpEarned      Int @default(0)
+  /// 当天累计学习时长（分钟）
+  minutes       Int @default(0)
+  lessonsDone   Int @default(0)
+  exercisesDone Int @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  /// 排行榜：按日期范围 + XP 排序
+  @@index([date, xpEarned(sort: Desc)])
+}

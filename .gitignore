@@ -1,0 +1,57 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+Thumbs.db
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files —— 绝不提交密钥
+.env
+.env*.local
+
+# vercel
+.vercel
+
+# netlify（部署状态/本地构建产物）
+.netlify
+
+# typescript
+*.tsbuildinfo
+
+# vitest / playwright
+/coverage
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache
+
+# ===== C 运行器工具链（体积大，用脚本抓取，不进版本库）=====
+# 抓取方式：node scripts/fetch-toolchain.mjs
+/public/toolchain/
+# 自托管 @wasmer/sdk 浏览器运行时：node scripts/vendor-wasmer-sdk.mjs
+/public/wasmer/
+.cache/
+
+.vercel
+.env*
+
+# 本地调试垃圾
+*.log
+/_probe.py

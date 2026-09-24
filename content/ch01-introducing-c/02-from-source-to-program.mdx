@@ -1,0 +1,105 @@
+<Goals items={["说清预处理、编译、链接三步各自在做什么", "看到报错时能判断它出在哪一步", "知道 .c、.h、.o、可执行文件之间的关系"]} />
+
+<KeyPoint>
+  你写的 `.c` 文件不是程序，只是一份「说明书」。它要经过预处理 → 编译 → 链接三道工序，
+  才能变成能运行的程序；报错出现在哪一步，直接决定了你该去查什么。
+</KeyPoint>
+
+## 三道工序
+
+假设你写了一个文件 `hello.c`：
+
+```c
+#include <stdio.h>
+
+int main(void)
+{
+    printf("hello\n");
+    return 0;
+}
+```
+
+它变成可执行程序的过程是这样的：
+
+<Callout type="info" title="第一步：预处理（preprocessing）">
+  处理所有以 `#` 开头的指令。`#include <stdio.h>` 会把 `stdio.h` 这个文件的内容**原样复制粘贴**到这一行；
+  `#define N 5` 会把代码里所有的 `N` 替换成 `5`。
+  结果还是一个纯 C 文件，只是变长了很多。这一步不检查语法。
+</Callout>
+
+<Callout type="info" title="第二步：编译（compilation）">
+  把 C 代码翻译成机器指令，生成**目标文件**（`hello.o`）。
+  这一步才是真正「读懂」你的代码的地方：语法错误、类型不匹配、变量没声明，都在这里报。
+  此时 `printf` 只是个「有人会提供」的声明，编译器并不需要知道它在哪。
+</Callout>
+
+<Callout type="info" title="第三步：链接（linking）">
+  把目标文件和用到的库拼成一个可执行文件。
+  这一步负责解决「`printf` 到底在哪」：去标准库里找到它的实现，把地址填进你的程序里。
+  找不到就报 `undefined reference to ...`。
+</Callout>
+
+## 报错出现在哪一步，决定了你查什么
+
+这是本节最实用的一张表——**先分类，再动手**：
+
+| 报错样子 | 出在哪一步 | 通常是什么原因 |
+|---|---|---|
+| `error: expected ';' after expression` | 编译 | 语法写错了，看它给的行号 |
+| `error: 'x' undeclared` | 编译 | 变量没声明，或者拼错了 |
+| `warning: implicit declaration of function 'printf'` | 编译 | 漏了 `#include <stdio.h>`（旧标准下只是警告，很危险） |
+| `undefined reference to 'printf'` | **链接** | 函数声明了但没有实现；或者漏了头文件导致调用方式不匹配 |
+| `multiple definition of 'main'` | **链接** | 同一个符号被定义了两次 |
+
+<Callout type="tip" title="看到 reference / definition 这两个词，就往链接上想">
+  编译错误关心的是「你这行写得对不对」，链接错误关心的是「你要的东西有没有人提供」。
+  两者混在一起看，就会像没头苍蝇一样乱改代码。
+</Callout>
+
+## 那些 `.h` 文件是干什么的
+
+`stdio.h` 这类头文件里放的是**声明**：告诉编译器「有一个叫 printf 的函数，它接受一个字符串和若干参数，返回 int」。
+
+它不包含 printf 的实现——实现早就编译进标准库里了。所以：
+
+- `#include <stdio.h>` = 告诉编译器「等下你会看到 printf，别慌，它存在」
+- 链接阶段 = 真的把 printf 的实现接上
+
+理解了这一点，你就能解释那个经典现象：**漏了头文件时，程序有时居然还能编译通过，但运行结果莫名其妙**——因为编译器按老规矩猜了个参数类型，链接时也碰巧对上了。
+
+## 自己看一眼这三步
+
+下面这个程序只做一件事：打印两行字。点「运行」时，你看到的其实是完整的「编译 + 链接 + 执行」流程（网站里跑的是一模一样的 clang 编译器）：
+
+<TryIt title="一个两步输出的程序">
+{`#include <stdio.h>
+
+int main(void)
+{
+    printf("第一步：我的代码被编译成了机器指令\\n");
+    printf("第二步：链接器把 printf 的实现接了上来\\n");
+    return 0;
+}
+`}
+</TryIt>
+
+<Pitfall title="把「警告」当没看见">
+  编译器给的警告（warning）不是建议，是**它已经发现你有问题但还愿意放你过去**。
+  例如 `implicit declaration` 意味着编译器在猜你的函数签名——猜错了就是运行时崩溃。
+  养成习惯：**让警告数为 0**，而不是「能跑就行」。
+</Pitfall>
+
+## 随堂检测
+
+<Quiz id="ch01-from-source-to-program-q1" />
+
+<Quiz id="ch01-from-source-to-program-q2" />
+
+<Quiz id="ch01-from-source-to-program-q3" />
+
+## 这一节的结论
+
+预处理负责替换、编译负责翻译、链接负责拼接。记住这条线，你以后看报错的速度会快一倍。
+下一节，我们把一个最简单的程序逐字拆开，看看每个字符为什么必须在那儿。
+
+<BookRef pages="22~27" note="第 1 章的编译过程部分" />

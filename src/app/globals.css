@@ -1,0 +1,224 @@
+@import "tailwindcss";
+
+/* 类切换的深色模式：默认浅色，只有 html 上有 .dark 才走深色 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================
+   设计令牌：蓝 + 灰 冷色调。全站唯一暖色是 --warning（仅提示用）
+   ============================================================ */
+:root {
+  --background: #f6f8fb;
+  --surface: #ffffff;
+  --surface-muted: #f1f5f9;
+  --surface-sunken: #eef2f7;
+  --foreground: #0f172a;
+  /* 对比度是按 WCAG AA 实算过的（浅底 #f6f8fb），并由 tests/unit/design/contrast.test.ts 守着：
+     muted  #475569 → 7.1:1  ✓  所有"要读的"辅助文字
+     subtle #556275 → 5.8:1  ✓  元信息（行号、分隔、时间戳）
+     （第一版用的是 #64748b / #94a3b8，前者 4.47、后者 2.41，都不达标） */
+  --muted-foreground: #475569;
+  --subtle-foreground: #556275;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-foreground: #ffffff;
+  --primary-soft: #eff6ff;
+  --primary-ring: #bfdbfe;
+
+  /* 语义色：作为"文字色"用在各自的浅底上，所以必须够深。
+     （#0ea5e9 在 #e0f2fe 上只有 2.42:1，#f59e0b 在 #fffbeb 上只有 2.07:1——都不能当文字色） */
+  --success: #0369a1;
+  --success-soft: #e0f2fe;
+  --danger: #b91c1c;
+  --danger-soft: #fef2f2;
+  --warning: #b45309;
+  --warning-soft: #fffbeb;
+
+  --code-bg: #f8fafc;
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.06);
+  --shadow-pop: 0 10px 30px -12px rgb(15 23 42 / 0.25);
+}
+
+.dark {
+  --background: #0b1220;
+  --surface: #111a2b;
+  --surface-muted: #162034;
+  --surface-sunken: #0e1626;
+  --foreground: #e2e8f0;
+  --muted-foreground: #94a3b8;
+  --subtle-foreground: #64748b;
+  --border: #1e293b;
+  --border-strong: #334155;
+
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-foreground: #0b1220;
+  --primary-soft: #172554;
+  --primary-ring: #1e3a8a;
+
+  --success: #38bdf8;
+  --success-soft: #082f49;
+  --danger: #f87171;
+  --danger-soft: #450a0a;
+  --warning: #fbbf24;
+  --warning-soft: #451a03;
+
+  --code-bg: #0e1626;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-pop: 0 10px 30px -12px rgb(0 0 0 / 0.7);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-ring: var(--primary-ring);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-code-bg: var(--code-bg);
+
+  --radius-card: var(--radius);
+
+  /* 中文优先的字体栈：Geist 管拉丁字母，CJK 交给系统字体（避免下载几 MB 的中文字体） */
+  --font-sans: var(--font-geist-sans), "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Source Han Sans SC", "Noto Sans CJK SC", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
+    Consolas, "Liberation Mono", monospace;
+}
+
+:root {
+  --radius: 0.75rem;
+}
+
+html {
+  color-scheme: light;
+  scroll-behavior: smooth;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 焦点可见性：键盘用户必须看得见 */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: var(--primary-ring);
+  color: var(--foreground);
+}
+
+/* 细滚动条，冷灰 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+/* 尊重系统的"减少动态效果" */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   代码高亮（rehype-pretty-code 双主题）
+   浅色用 github-light，深色用 github-dark；靠 .dark class 切变量。
+   ============================================================ */
+[data-rehype-pretty-code-figure] pre {
+  background: var(--code-bg) !important;
+}
+
+[data-rehype-pretty-code-figure] code {
+  display: grid;
+  font-size: 13px;
+  line-height: 1.6;
+  background: transparent;
+  padding: 0;
+}
+
+[data-rehype-pretty-code-figure] code [data-line] {
+  padding: 0 0.25rem;
+}
+
+/* 行号（标题里的数字不是代码的一部分，用 CSS counter 生成） */
+[data-rehype-pretty-code-figure] code[data-line-numbers] {
+  counter-reset: line;
+}
+[data-rehype-pretty-code-figure] code[data-line-numbers] > [data-line]::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 1.75rem;
+  margin-right: 0.75rem;
+  text-align: right;
+  color: var(--subtle-foreground);
+}
+
+/* 高亮的行 */
+[data-rehype-pretty-code-figure] [data-highlighted-line] {
+  background: var(--primary-soft);
+  border-left: 2px solid var(--primary);
+}
+
+code[data-theme*=" "] span {
+  color: var(--shiki-light);
+}
+
+.dark code[data-theme*=" "] span {
+  color: var(--shiki-dark);
+}
+
+/* 行内代码不套用上面的网格布局 */
+:not(pre) > code {
+  display: inline;
+  background: var(--surface-muted);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}

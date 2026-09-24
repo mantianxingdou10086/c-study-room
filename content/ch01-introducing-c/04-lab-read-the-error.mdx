@@ -1,0 +1,105 @@
+<Goals items={["掌握「先看第一行、再看行号」的读报错顺序", "认出五种最常见的编译错误", "能独立修好漏分号、缺花括号、拼错函数名这类问题"]} />
+
+<KeyPoint>
+  编译错误不是对你能力的评价，是编译器在给你精确的坐标：
+  **文件名 + 行号 + 列号 + 它期望看到什么**。这一节我们把它的四种典型说法翻译成人话。
+</KeyPoint>
+
+## 先建立一个动作顺序
+
+看到一大段红色报错时，按这个顺序做：
+
+1. **只读第一行**。C 编译器通常一次只报一个真问题，后面的报错常常是第一个问题的连锁反应。
+2. **看文件名和行号**。`main.c:5:30` 表示 `main.c` 第 5 行、第 30 列。
+3. **看它「期望什么」**。`expected ';'` 就是「我以为这里该有分号」。
+4. **改一处，重新编译**。不要一次改五处——那样你不知道是哪一处修好的。
+
+## 四种典型报错，翻译成人话
+
+### 1. `error: expected ';' after expression`
+
+真实的样子（下面这段是真跑出来的，不是编的）：
+
+```
+main.c:5:30: error: expected ';' after expression
+    printf("我忘了分号")
+                        ^
+                        ;
+1 error generated.
+```
+
+**人话**：第 5 行的语句没写分号。它还贴心地把插入符 `^` 画在缺分号的位置。
+
+### 2. `error: 'age' undeclared (first use in this function)`
+
+**人话**：你用了 `age` 这个名字，但之前没声明过它。三种可能：拼错了、忘了声明、或者声明写在了使用之后。
+
+### 3. `error: expected declaration or statement at end of input`
+
+**人话**：编译器一路读到文件末尾，还在等它要的东西——最常见的是**少了一个右花括号**。数一数 `{` 和 `}` 的个数。
+
+### 4. `warning: implicit declaration of function 'prinft'`
+
+**人话**：`prinft` 这个名字编译器没见过（很可能是 `printf` 拼错了），它按老规矩猜了一个签名放你过去。
+**这类警告必须修**，否则运行时会得到莫名其妙的结果。
+
+## 动手：故意把程序改坏五次
+
+下面是正确版本。请**逐个**引入下面五个错误，每次只改一处，改完点运行，**读一遍报错再改回来**。
+
+<TryIt title="正确版本（从这里开始）">
+{`#include <stdio.h>
+
+int main(void)
+{
+    int age = 20;
+
+    printf("年龄：%d\\n", age);
+    return 0;
+}
+`}
+</TryIt>
+
+五次实验：
+
+| # | 怎么改坏 | 预期看到什么 | 要学到的 |
+|---|---|---|---|
+| 1 | 删掉 `printf` 那一行末尾的分号 | `expected ';' after expression` | 报错行号 = 出问题的语句行 |
+| 2 | 把 `printf` 拼成 `prinft` | `implicit declaration of function` 警告 | 警告也要看，它是在救你 |
+| 3 | 删掉最后一行的 `}` | `expected declaration or statement at end of input` | 这是「花括号没配对」的信号 |
+| 4 | 删掉 `#include <stdio.h>` | `implicit declaration` 警告或 `undefined reference` 链接错误 | 头文件缺失会在编译或链接阶段暴露 |
+| 5 | 把 `int age = 20;` 改成 `int age 20;` | `expected '=' , ',' , ';' ...` | 编译器会列出一堆「期望」，看第一个就够 |
+
+<Callout type="tip" title="这个练习值得做两遍">
+  第二遍不看表格，直接改，自己先猜报错长什么样，再点运行验证。
+  能在心里预判报错，你就真正把「读报错」变成技能了。
+</Callout>
+
+<Pitfall title="一次改多处，然后「居然好了」">
+  这种「修好了但不知道为什么」的状态最危险：下次遇到同样的错误你还是不会。
+  规矩是**一次只改一处**，改完立刻重新编译。
+</Pitfall>
+
+<Pitfall title="把报错当成随机噪声，开始瞎改">
+  比如看到 `expected ';'` 就去删各种括号、加各种分号。
+  这会让问题从「一个语法错误」变成「十个语法错误」。回到第一行报错，只处理它。
+</Pitfall>
+
+## 随堂检测
+
+<Quiz id="ch01-lab-read-the-error-q1" />
+
+<Quiz id="ch01-lab-read-the-error-q2" />
+
+<Quiz id="ch01-lab-read-the-error-q3" />
+
+<Quiz id="ch01-lab-read-the-error-q4" />
+
+## 这一节的结论
+
+读报错的顺序是：**第一行 → 文件名:行:列 → 它期望什么 → 只改一处**。
+把这条顺序练成肌肉记忆，你排查问题的速度会超过大多数同班同学。
+
+这一章到这里就结束了。你现在会写、会跑、会读报错——下一章开始，我们正式学怎么让程序记住数据。
+
+<BookRef pages="22~27" note="第 1 章的编程练习可作为额外练手" />

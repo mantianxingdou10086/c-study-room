@@ -1,0 +1,115 @@
+<Goals items={["用 switch 把「一个值对应多个固定分支」写清楚", "解释忘了 break 会发生什么", "用条件表达式写出「两个值里取一个」的写法"]} />
+
+<KeyPoint>
+  `switch` 适合「一个值对应多个固定分支」；忘了 `break` 会一路穿下去，这是它最大的坑。
+  它是 `if / else if` 的补充，不是替代品。
+</KeyPoint>
+
+## switch 的形状
+
+```c
+switch (n) {
+case 1:
+    printf("一\n");
+    break;
+case 2:
+    printf("二\n");
+    break;
+default:
+    printf("其它\n");
+    break;
+}
+```
+
+读这段代码时，记住四件事：
+
+- `switch` 后面括号里是一个**值**（整数或字符），程序拿它去和每个 `case` 比「是否相等」。
+- `case` 后面跟的是一个**常量**，比如 `1`、`'a'`。相等就从那里开始执行。
+- `break` 的意思是「到此为止，跳出整个 `switch`」。
+- `default` 是所有 `case` 都不匹配时的入口。它位置随意，习惯写在最后。
+
+## 忘了 break：一路穿下去
+
+`case` 只是**入口**，不是**边界**。从某个 `case` 进去以后，程序会顺着往下执行，
+直到遇到 `break` 或者整个 `switch` 结束——中间那些 `case` 的标签会被直接跳过，不参与判断。
+
+<TryIt title="少写两个 break 会怎样">
+{`#include <stdio.h>
+
+int main(void)
+{
+    int n = 2;
+
+    switch (n) {
+    case 1:
+        printf("一");
+    case 2:
+        printf("二");
+    case 3:
+        printf("三");
+    }
+    printf("\\n");
+    return 0;
+}
+`}
+</TryIt>
+
+`n` 是 2，程序从 `case 2` 进入，打印「二」，然后**继续往下**打印「三」——输出是 `二三`。
+这就是穿透（fallthrough）。它不会报错，只是多做了事，所以特别容易被忽略。
+
+<Callout type="info" title="穿透偶尔是有意为之">
+  几个 `case` 想共用同一段代码时，可以不写 `break`：
+  `case 'a': case 'e': printf("元音\\n"); break;`
+  但这是刻意的用法。默认规则应该是：**每个分支末尾都写 `break`**，需要穿透时再特意省略并加注释。
+</Callout>
+
+## switch 能吃什么
+
+`switch` 只做「值相等」的比较，所以它的能力范围很窄：
+
+| 可以 | 不可以 |
+|---|---|
+| 整数、字符、枚举 | 浮点数（`case 1.5:`） |
+| 写死的常量 | 范围（`case >= 90:`） |
+| | 变量（`case n:`） |
+
+判断「分数在 90 以上」这种范围问题，`switch` 写不出来——那正是 `if / else if` 的活。
+
+## 条件表达式：一句话的 if-else
+
+```c
+int max = a > b ? a : b;
+```
+
+读作「`a > b` 吗？是就取 `a`，否则取 `b`」。这个 `?:` 叫条件表达式，
+适合**在两个值里选一个**的场合：取最大值、决定打印什么字、给变量挑一个初值。
+
+它和 `if` 的区别是：条件表达式**产出一个值**，而 `if` 是**执行语句**。
+要执行好几条语句（比如打印一行、再改一个变量），还是老老实实用 `if`。
+
+<Pitfall title="忘了 break">
+  看到 `case` 里打印完东西却没有 `break`，就按穿透来推演输出：**从命中的那个 case 开始，一直打印到 switch 结束**。
+  判据：输出里出现两个分支的内容拼在一起（比如 `二三`），就是漏了 `break`。
+</Pitfall>
+
+<Pitfall title="拿 switch 去判范围">
+  `case 90:` 只匹配正好等于 90，不匹配 91。写成 `case >= 90:` 根本编译不过。
+  判据：题目的条件是「大于/小于/之间」时，用 `if / else if`；只有「等于某个固定值」才轮到 `switch`。
+</Pitfall>
+
+## 随堂检测
+
+<Quiz id="ch05-switch-and-conditional-q1" />
+
+<Quiz id="ch05-switch-and-conditional-q2" />
+
+<Quiz id="ch05-switch-and-conditional-q3" />
+
+## 这一节的结论
+
+`switch` 处理「一个值分几档」这种整齐的分支，可读性比一串 `else if` 好；
+但它的边界只有 `break` 守着，忘了就穿透。条件表达式则是「两个值里选一个」的简写。
+
+下一节我们把这一章的东西全用上：成绩等级和闰年判断。
+
+<BookRef pages="77~97" note="第 5 章关于 switch 语句与条件表达式的小节" />

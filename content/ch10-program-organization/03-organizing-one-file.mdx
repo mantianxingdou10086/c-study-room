@@ -1,0 +1,132 @@
+<Goals items={["说出单文件程序六个区段的惯例顺序", "写出函数原型，让 main 能调用定义在后面的函数", "给一个乱序的单文件程序排出可读的顺序"]} />
+
+<KeyPoint>
+  惯例顺序是：包含 → 宏 → 类型 → 函数原型 → main → 各函数实现。
+  顶部是「目录」，main 是「提纲」，细节在后面——读代码的人从上往下读一遍就够，不用来回跳。
+</KeyPoint>
+
+## 为什么顺序值得统一
+
+一个能跑的程序，行数一多就会有两种命运：要么读起来一路顺下去，要么读起来像在解谜。区别常常不在逻辑，而在**东西摆放的位置**。
+
+C 的编译器是自上而下扫一遍的：它读到某一行时，只认识这一行之前出现过的东西。这条规则既限制了你能不能通过编译，也顺带告诉我们什么顺序最自然——**先给编译器它需要的信息，再写它要执行的逻辑。**
+
+## 六个区段
+
+| 顺序 | 区段 | 放什么 | 例 |
+|---|---|---|---|
+| 1 | 包含 | 需要的头文件 | `#include <stdio.h>` |
+| 2 | 宏 | 常量、尺寸、开关 | `#define COUNT 3` |
+| 3 | 类型 | 给类型起的新名字 | `typedef int score_t;` |
+| 4 | 函数原型 | 所有函数的「预告」 | `int sum_of(score_t a, score_t b);` |
+| 5 | main | 程序的提纲 | `int main(void) { ... }` |
+| 6 | 各函数实现 | 每个函数的完整定义 | `int sum_of(...) { return a + b; }` |
+
+前三段合起来是这份文件的**目录**：要用到什么、有哪些常量、有哪些自己定义的类型，都在最上面一眼可见。读的人先扫一遍目录，再往下看逻辑，脑子里已经有地图了。
+
+## 函数原型：让 main 能调用写在后面的函数
+
+把函数实现都放在 `main` 后面，是为了让 `main` 尽量靠前、提纲一眼读完。但这样一来，`main` 里调用 `sum_of` 的时候，编译器还没见过这个名字。
+
+解决办法是在顶部写**函数原型**（也叫函数声明）：
+
+```c
+int sum_of(score_t a, score_t b, score_t c);
+```
+
+原型的形状就是「函数定义的第一行 + 一个分号」：返回类型、函数名、参数类型，末尾分号。它没有函数体，也不分配任何东西——它的唯一作用是告诉编译器「有这么个函数，参数和返回值是这样」。
+
+<Callout type="info" title="原型里的参数名可以省略">
+  写 `int sum_of(score_t, score_t, score_t);` 也完全合法。
+  不过把名字写上更好读——原型是给别人看的说明书，参数名是说明书的一部分。
+</Callout>
+
+## main 为什么放在中间
+
+如果 `main` 放到最前面，你就得先读一堆细节才能知道程序在干什么；如果放到最后，读的人翻到文件末尾才看到入口。放在「原型之后、实现之前」是最省力的位置：
+
+- 上面三行是目录：需要什么、有什么常量。
+- 中间是 `main`：程序分几步、每步调用哪个函数。
+- 下面是实现：想知道某一步具体怎么算，再往下翻。
+
+读代码的动作因此是**单向的**：从上往下，需要细节时再往下跳一次，永远不用回头找。
+
+<TryIt title="按惯例顺序排好的单文件程序">
+{`#include <stdio.h>
+
+#define COUNT 3
+
+typedef int score_t;
+
+int sum_of(score_t a, score_t b, score_t c);
+int average_of(score_t a, score_t b, score_t c);
+score_t max_of(score_t a, score_t b, score_t c);
+
+int main(void)
+{
+    score_t s1 = 80, s2 = 95, s3 = 67;
+
+    printf("total = %d\\n", sum_of(s1, s2, s3));
+    printf("average = %d\\n", average_of(s1, s2, s3));
+    printf("best = %d\\n", max_of(s1, s2, s3));
+    return 0;
+}
+
+int sum_of(score_t a, score_t b, score_t c)
+{
+    return a + b + c;
+}
+
+int average_of(score_t a, score_t b, score_t c)
+{
+    return (a + b + c) / COUNT;
+}
+
+score_t max_of(score_t a, score_t b, score_t c)
+{
+    score_t best = a;
+
+    if (b > best) {
+        best = b;
+    }
+    if (c > best) {
+        best = c;
+    }
+    return best;
+}
+`}
+</TryIt>
+
+注意几个细节：`main` 里只有三行打印，每行对应一个函数；三个函数各自独立，没有一个依赖全局变量；`average_of` 里的除法用的是宏 `COUNT`，不是写死的 3。这份文件从上往下读，不需要回头。
+
+<Pitfall title="忘了写函数原型">
+  **判据**：编译时出现「隐式声明」类的警告或错误（英文提示里通常带 `implicit declaration of function`），
+  而且报错位置正好在 `main` 里调用那个函数的那一行。这时不要改调用点，回到顶部补一行原型。
+</Pitfall>
+
+<Pitfall title="把原型写成了定义">
+  原型末尾有分号、没有函数体；定义有函数体、末尾不写分号。写成 `int sum_of(int a, int b) { ... }` 又放在顶部，
+  等于把实现提前了，后面的顺序就乱了。**判据**：顶部那一行后面跟着一对花括号——那就是定义，不是原型。
+</Pitfall>
+
+<Pitfall title="原型和定义不一致">
+  参数个数、类型或者返回类型对不上，编译器会报 `conflicting types`。
+  **判据**：改函数参数时，把原型和定义当成一处改动来改——两处一起改，或者干脆只改一处再让编译器告诉你另一处在哪。
+</Pitfall>
+
+## 随堂检测
+
+<Quiz id="ch10-organizing-one-file-q1" />
+
+<Quiz id="ch10-organizing-one-file-q2" />
+
+<Quiz id="ch10-organizing-one-file-q3" />
+
+## 这一节的结论
+
+单文件程序的顺序不是审美问题，它是由「编译器自上而下看一遍」这条规则推出来的：
+把需要先知道的东西放上面，把执行逻辑放中间，把细节放下面。
+记住这六个词就够了：包含、宏、类型、原型、main、实现。
+下一节是这一章的动手课：我们会拿一个又长又乱的能跑程序，把它整理成这个样子——**而输出一个字都不许变**。
+
+<BookRef pages="193~207" note="第 10 章关于函数声明与程序结构的部分" />
