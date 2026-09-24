@@ -50,7 +50,10 @@ yarn-error.log*
 .cache/
 
 .vercel
-.env*
+# 只忽略真实密钥文件；.env.example 是模板，必须进版本库
+.env
+.env*.local
+!.env.example
 
 # 本地调试垃圾
 *.log
